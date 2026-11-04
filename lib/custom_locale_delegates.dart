@@ -27,6 +27,8 @@ class OccitanFrenchFallbackDelegate<T> extends LocalizationsDelegate<T> {
 
 const appLocalizationsDelegates = <LocalizationsDelegate<dynamic>>[
   OccitanFrenchFallbackDelegate(GlobalMaterialLocalizations.delegate),
+  OccitanFrenchFallbackDelegate(sdk.GlobalMaterialLocalizations.delegate),
   OccitanFrenchFallbackDelegate(GlobalCupertinoLocalizations.delegate),
+  OccitanFrenchFallbackDelegate(sdk.GlobalCupertinoLocalizations.delegate),
   OccitanFrenchFallbackDelegate(sdk.GlobalWidgetsLocalizations.delegate),
 ];

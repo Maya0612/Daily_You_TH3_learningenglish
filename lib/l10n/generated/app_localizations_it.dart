@@ -9,7 +9,7 @@ class AppLocalizationsIt extends AppLocalizations {
   AppLocalizationsIt([String locale = 'it']) : super(locale);
 
   @override
-  String get appTitle => 'Daily You';
+  String get appTitle => 'learningEnglish';
 
   @override
   String get dailyReminderTitle => 'Scrivi sul diario';

@@ -39,6 +39,10 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
     aaptOptions {
         cruncherEnabled = false
     }
@@ -57,7 +61,7 @@ android {
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
 	vectorDrawables.generatedDensities = []
-        resValue "string", "app_name", "Daily You"
+        resValue "string", "app_name", "learningEnglish"
     }
 
     signingConfigs {
@@ -83,7 +87,7 @@ android {
             dimension "default"
             applicationIdSuffix ".dev"
             versionNameSuffix "-dev"
-            resValue "string", "app_name", "Daily You Dev"
+            resValue "string", "app_name", "learningEnglish Dev"
             signingConfig = signingConfigs.release
         }
     }
@@ -116,6 +120,23 @@ android {
 tasks.whenTaskAdded { task ->
     if (task.name.contains("ArtProfile")) {
         task.enabled = false
+    }
+}
+
+afterEvaluate {
+    tasks.named("assembleDebug").configure {
+        doLast {
+            def devApk = file("${project.buildDir}/outputs/apk/dev/debug/app-dev-debug.apk")
+            if (devApk.exists()) {
+                def flutterApkDir = file("${project.buildDir}/outputs/flutter-apk")
+                flutterApkDir.mkdirs()
+                copy {
+                    from devApk
+                    into flutterApkDir
+                    rename { 'app-debug.apk' }
+                }
+            }
+        }
     }
 }
 

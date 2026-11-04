@@ -32,9 +32,17 @@ class _LearningReminderDialogState extends State<LearningReminderDialog> {
   bool _onlyIfPending = true;
 
   final List<int> _goalOptions = [10, 15, 20, 30, 45, 60];
+  late final TextEditingController _customMinutesController;
+
+  @override
+  void dispose() {
+    _customMinutesController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
+    _customMinutesController = TextEditingController();
     super.initState();
     _loadSettings();
   }
@@ -51,6 +59,7 @@ class _LearningReminderDialogState extends State<LearningReminderDialog> {
         _reminderTime = time;
         _dailyGoalMinutes = goal;
         _onlyIfPending = onlyIfPending;
+        _customMinutesController.text = goal.toString();
         _isLoading = false;
       });
     }
@@ -184,11 +193,50 @@ class _LearningReminderDialogState extends State<LearningReminderDialog> {
                         selected: isSelected,
                         onSelected: (selected) {
                           if (selected) {
-                            setState(() => _dailyGoalMinutes = minutes);
+                            setState(() {
+                              _dailyGoalMinutes = minutes;
+                              _customMinutesController.text = minutes.toString();
+                            });
                           }
                         },
                       );
                     }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.tune_rounded, size: 18, color: Color(0xFF6C63FF)),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Hoặc tự nhập số phút:',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 95,
+                        height: 38,
+                        child: TextField(
+                          controller: _customMinutesController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                          decoration: InputDecoration(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            suffixText: 'phút',
+                            suffixStyle: const TextStyle(fontSize: 11, color: Colors.grey),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onChanged: (val) {
+                            final mins = int.tryParse(val.trim());
+                            if (mins != null && mins > 0) {
+                              setState(() => _dailyGoalMinutes = mins);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ),
 
                   const Divider(height: 28),

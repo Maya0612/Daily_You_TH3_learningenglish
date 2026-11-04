@@ -195,7 +195,8 @@ class LearningProgressProvider extends ChangeNotifier {
     DateTime? prevDate;
 
     for (final dayStr in sortedDays) {
-      final date = DateTime.parse(dayStr);
+      final date = DateTime.tryParse(dayStr);
+      if (date == null) continue;
       if (prevDate == null) {
         tempStreak = 1;
       } else {

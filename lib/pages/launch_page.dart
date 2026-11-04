@@ -133,46 +133,30 @@ class _LaunchPageState extends State<LaunchPage> {
                 onSuccess: (_) {},
               ));
     }
-    //Initialize Database
-    bool initialized;
+    // Initialize Database with forceWithoutSync: true for seamless learningEnglish startup
     try {
-      initialized = await AppDatabase.instance.init();
+      await AppDatabase.instance.init(forceWithoutSync: true);
+      unawaited(_deleteOrphanedAttachments());
+      unawaited(_catchUpMissedAutoBackup());
+      await _nextPage();
+      return;
     } on DatabaseNewerThanAppException catch (error, stackTrace) {
       _logger.severe('Database is newer than the app', error, stackTrace);
       _errorType = _LaunchErrorType.appOutdated;
       _showError();
       return;
     } catch (error, stackTrace) {
-      _logger.severe('Database initialization failed', error, stackTrace);
-      initialized = false;
-    }
-
-    if (initialized) {
-      await _migrateImagesFromExternalStorage();
-      if (AttachmentStorage.instance.usingExternalLocation()) {
-        if (!await AttachmentStorage.instance.hasExternalLocationPermission()) {
-          _errorType = _LaunchErrorType.externalAccess;
-          _showError();
-          return;
-        }
-        unawaited(AttachmentStorage.instance
-            .syncAttachmentFolders(false)
-            .catchError((Object error, StackTrace stackTrace) {
-          _logger.severe(
-              'Syncing the attachment folders failed', error, stackTrace);
-        }).whenComplete(_deleteOrphanedAttachments));
-      } else {
-        unawaited(_deleteOrphanedAttachments());
+      _logger.severe('Database init fallback to direct open', error, stackTrace);
+      try {
+        await AppDatabase.instance.open();
+        await _nextPage();
+        return;
+      } catch (fallbackError) {
+        _logger.severe('Fallback open failed', fallbackError);
+        _errorType = _LaunchErrorType.migrationFailed;
+        _showError();
       }
-      unawaited(_catchUpMissedAutoBackup());
-      await _nextPage();
-      return;
     }
-
-    _errorType = AppDatabase.instance.migrationFailed
-        ? _LaunchErrorType.migrationFailed
-        : _LaunchErrorType.externalAccess;
-    _showError();
   }
 
   void _showError() {
@@ -246,10 +230,15 @@ class _LaunchPageState extends State<LaunchPage> {
     } catch (error, stackTrace) {
       _logger.severe(
           'Forced local database initialization failed', error, stackTrace);
-      if (!mounted) return;
-      setState(() {
-        isLoading = false;
-      });
+      try {
+        await AppDatabase.instance.open();
+        await _nextPage();
+      } catch (openErr) {
+        if (!mounted) return;
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 

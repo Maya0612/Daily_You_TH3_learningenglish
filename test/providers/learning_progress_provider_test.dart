@@ -91,27 +91,31 @@ void main() {
     });
 
     test('Recording completed sessions updates today time, streak and chart', () async {
+      final testNow = DateTime.now();
       final user = await UserDao.add(User(
         name: 'Active Learner',
-        timeCreate: now,
-        timeModified: now,
+        timeCreate: testNow,
+        timeModified: testNow,
       ));
 
-      final todayStr = '2026-11-02';
-      final yesterdayStr = '2026-11-01';
+      final todayStr =
+          '${testNow.year.toString().padLeft(4, '0')}-${testNow.month.toString().padLeft(2, '0')}-${testNow.day.toString().padLeft(2, '0')}';
+      final testYesterday = testNow.subtract(const Duration(days: 1));
+      final yesterdayStr =
+          '${testYesterday.year.toString().padLeft(4, '0')}-${testYesterday.month.toString().padLeft(2, '0')}-${testYesterday.day.toString().padLeft(2, '0')}';
 
       // 1. Thêm phiên hoàn thành hôm qua để tạo chuỗi streak
       await PracticeHistoryDao.add(PracticeHistory(
         userId: user.id!,
         activityType: ActivityType.pronunciation,
         content: 'Yesterday practice',
-        startedAt: DateTime(2026, 11, 1, 20, 0),
-        endedAt: DateTime(2026, 11, 1, 20, 10),
+        startedAt: testYesterday,
+        endedAt: testYesterday.add(const Duration(minutes: 10)),
         durationSeconds: 600, // 10 phút
         practiceDate: yesterdayStr,
         status: PracticeStatus.completed,
-        timeCreate: DateTime(2026, 11, 1, 20, 0),
-        timeModified: DateTime(2026, 11, 1, 20, 10),
+        timeCreate: testYesterday,
+        timeModified: testYesterday,
       ));
 
       // 2. Thêm phiên hoàn thành hôm nay (10 phút)
@@ -119,13 +123,13 @@ void main() {
         userId: user.id!,
         activityType: ActivityType.pronunciation,
         content: 'The sun rises in the east',
-        startedAt: now,
-        endedAt: now.add(const Duration(minutes: 10)),
+        startedAt: testNow,
+        endedAt: testNow.add(const Duration(minutes: 10)),
         durationSeconds: 600, // 10 phút
         practiceDate: todayStr,
         status: PracticeStatus.completed,
-        timeCreate: now,
-        timeModified: now,
+        timeCreate: testNow,
+        timeModified: testNow,
       ));
 
       await provider.loadProgress(userId: user.id!);

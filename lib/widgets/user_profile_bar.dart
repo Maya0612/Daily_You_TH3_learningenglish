@@ -1,3 +1,4 @@
+import 'package:daily_you/pages/login_page.dart';
 // Copyright (C) 2026 Daily You TH3 Learning English
 // SPDX-License-Identifier: GPL-3.0-only
 // Additional terms under GPLv3 section 7 apply; see ADDITIONAL_TERMS.md.
@@ -83,11 +84,25 @@ class UserProfileBar extends StatelessWidget {
               FilledButton.tonalIcon(
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
                 icon: const Icon(Icons.swap_horiz_rounded, size: 18),
-                label: const Text('Đổi tài khoản'),
+                label: const Text('Đổi'),
                 onPressed: () => UserSwitchDialog.show(context),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(Icons.logout_rounded, size: 20, color: Color(0xFFD32F2F)),
+                tooltip: 'Đăng xuất',
+                onPressed: () async {
+                  await session?.logout();
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginPage()),
+                      (r) => false,
+                    );
+                  }
+                },
               ),
             ],
           ),
@@ -120,14 +135,16 @@ class UserProfileBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 130),
-                child: Text(
-                  userName,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 85),
+                  child: Text(
+                    userName,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 4),

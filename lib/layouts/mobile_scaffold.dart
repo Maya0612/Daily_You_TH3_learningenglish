@@ -14,16 +14,13 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/scheduler.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:daily_you/l10n/generated/app_localizations.dart';
-import 'package:daily_you/pages/statistics_page.dart';
-import 'package:daily_you/pages/gallery_page.dart';
-import 'package:daily_you/pages/home_page.dart';
-import 'package:daily_you/pages/learning_progress_page.dart';
+import 'package:daily_you/pages/learning_roadmap_page.dart';
 import 'package:daily_you/pages/practice_speech_page.dart';
+import 'package:daily_you/pages/statistics_page.dart';
+import 'package:daily_you/pages/settings_page.dart';
 import 'package:daily_you/widgets/user_switch_dialog.dart';
 import 'package:daily_you/widgets/user_profile_bar.dart';
 import 'package:provider/provider.dart';
-
-import '../pages/settings_page.dart';
 
 class MobileScaffold extends StatefulWidget {
   const MobileScaffold({super.key});
@@ -34,8 +31,9 @@ class MobileScaffold extends StatefulWidget {
 
 class _MobileScaffoldState extends State<MobileScaffold> {
   int currentIndex = 0;
-  final List<bool> _isScrolled = [false, false, false, false, false];
+  final List<bool> _isScrolled = [false, false, false];
   final _swipePagesKey = GlobalKey<_SwipePagesState>();
+  final _practicePageKey = GlobalKey<PracticeSpeechPageState>();
 
   int _prebuildViewports = 0;
 
@@ -47,11 +45,53 @@ class _MobileScaffoldState extends State<MobileScaffold> {
   void initState() {
     super.initState();
     pages = [
-      const HomePage(),
-      LearningProgressPage(onStartPractice: () => _switchPage(2)),
-      const PracticeSpeechPage(),
-      const GalleryPage(),
-      const StatsPage(),
+      LearningRoadmapPage(
+        onSelectSentenceToPractice: (sentence) {
+          _switchPage(1);
+          _practicePageKey.currentState?.setSentence(sentence);
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🎯 Đã nạp câu: "${sentence.sentence}". Bấm nút Micro để bắt đầu luyện!'),
+              backgroundColor: const Color(0xFF6C63FF),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        },
+        onSelectLessonToPractice: (levelCode, lesson) {
+          _switchPage(1);
+          _practicePageKey.currentState?.loadCourseLesson(
+            levelCode: levelCode,
+            lesson: lesson,
+          );
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🎯 Đang học: $levelCode - ${lesson.title} (${lesson.sentences.length} câu)'),
+              backgroundColor: const Color(0xFF6C63FF),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        },
+      ),
+      PracticeSpeechPage(key: _practicePageKey),
+      StatsPage(
+        onSelectSentenceToPractice: (sentence) {
+          _switchPage(1);
+          _practicePageKey.currentState?.setSentence(sentence);
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('🎯 Đã nạp câu: "${sentence.sentence}". Bấm nút Micro để luyện lại!'),
+              backgroundColor: const Color(0xFF6C63FF),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        },
+      ),
     ];
     SchedulerBinding.instance.addPostFrameCallback((_) => _startPrebuild());
     _scrollControllers = List.generate(pages.length, (_) => ScrollController());
@@ -117,6 +157,7 @@ class _MobileScaffoldState extends State<MobileScaffold> {
   }
 
   void _switchPage(int newIndex) {
+    EasyDebounce.cancel("page-change");
     final c = _scrollControllers[newIndex];
     if (c.hasClients && c.positions.length == 1) {
       _isScrolled[newIndex] = c.position.pixels > 0;
@@ -124,6 +165,7 @@ class _MobileScaffoldState extends State<MobileScaffold> {
     setState(() {
       currentIndex = newIndex;
     });
+    _swipePagesKey.currentState?.animateTo(newIndex);
   }
 
   Widget _buildPageStack() {
@@ -137,9 +179,7 @@ class _MobileScaffoldState extends State<MobileScaffold> {
               if (notification.metrics.axis != Axis.vertical) {
                 return false; // Don't interfere with horizontal scrollables.
               }
-              // Home page (index 0) has an internal calendar scroll that should
-              // not drive AppBar elevation.
-              if (notification.depth == 0 && i != 0) {
+              if (notification.depth == 0) {
                 _updateScrolled(i, notification.metrics.pixels > 0);
               }
               return true; // Consume: prevent Scaffold observer interference.
@@ -152,9 +192,6 @@ class _MobileScaffoldState extends State<MobileScaffold> {
   }
 
   bool _handleMobileScrollNotification(ScrollNotification notification) {
-    // Ignore the home page
-    if (currentIndex == 0) return false;
-
     if (notification.metrics.axis != Axis.vertical || notification.depth == 0) {
       return false;
     }
@@ -321,8 +358,8 @@ class _MobileScaffoldState extends State<MobileScaffold> {
             context,
             theme,
             0,
-            Icons.home_rounded,
-            l10n.pageHomeTitle,
+            Icons.auto_stories_rounded,
+            'Lộ trình học',
             onTap: closeDrawer
                 ? () {
                     Navigator.of(context).pop();
@@ -334,8 +371,8 @@ class _MobileScaffoldState extends State<MobileScaffold> {
             context,
             theme,
             1,
-            Icons.school_rounded,
-            'Tiến độ học',
+            Icons.record_voice_over_rounded,
+            'Luyện tập',
             onTap: closeDrawer
                 ? () {
                     Navigator.of(context).pop();
@@ -347,38 +384,12 @@ class _MobileScaffoldState extends State<MobileScaffold> {
             context,
             theme,
             2,
-            Icons.record_voice_over_rounded,
-            'Luyện phát âm',
+            Icons.analytics_rounded,
+            'Thống kê & Tiến độ',
             onTap: closeDrawer
                 ? () {
                     Navigator.of(context).pop();
                     _switchPage(2);
-                  }
-                : null,
-          ),
-          _buildNavItem(
-            context,
-            theme,
-            3,
-            Icons.photo_library_rounded,
-            l10n.pageGalleryTitle,
-            onTap: closeDrawer
-                ? () {
-                    Navigator.of(context).pop();
-                    _switchPage(3);
-                  }
-                : null,
-          ),
-          _buildNavItem(
-            context,
-            theme,
-            4,
-            Icons.auto_graph_rounded,
-            l10n.pageStatisticsTitle,
-            onTap: closeDrawer
-                ? () {
-                    Navigator.of(context).pop();
-                    _switchPage(4);
                   }
                 : null,
           ),
@@ -450,26 +461,18 @@ class _MobileScaffoldState extends State<MobileScaffold> {
             });
             _swipePagesKey.currentState?.animateTo(index);
           },
-          destinations: [
+          destinations: const [
             NavigationDestination(
-              icon: const Icon(Icons.home_rounded),
-              label: l10n.pageHomeTitle,
+              icon: Icon(Icons.auto_stories_rounded),
+              label: 'Lộ trình',
             ),
             NavigationDestination(
-              icon: const Icon(Icons.school_rounded),
-              label: 'Tiến độ',
+              icon: Icon(Icons.record_voice_over_rounded),
+              label: 'Luyện tập',
             ),
             NavigationDestination(
-              icon: const Icon(Icons.record_voice_over_rounded),
-              label: 'Phát âm',
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.photo_library_rounded),
-              label: l10n.pageGalleryTitle,
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.auto_graph_rounded),
-              label: l10n.pageStatisticsTitle,
+              icon: Icon(Icons.analytics_rounded),
+              label: 'Thống kê',
             ),
           ],
         ),
@@ -578,11 +581,9 @@ class _MobileScaffoldState extends State<MobileScaffold> {
     final configProvider = Provider.of<ConfigProvider>(context);
     final l10n = AppLocalizations.of(context)!;
     final List<String> pageTitles = [
-      l10n.pageHomeTitle,
-      'Tiến độ học tiếng Anh',
-      'Luyện phát âm tiếng Anh',
-      l10n.pageGalleryTitle,
-      l10n.pageStatisticsTitle,
+      'Lộ trình học tiếng Anh',
+      'Luyện tập phát âm AI',
+      'Thống kê & Tiến độ',
     ];
 
     return switch (WindowSizeClass.of(context)) {
@@ -624,7 +625,21 @@ class _SwipePagesState extends State<_SwipePages> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant _SwipePages oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialIndex != oldWidget.initialIndex &&
+        _pageController.hasClients) {
+      final current =
+          _pageController.page?.round() ?? _pageController.initialPage;
+      if (current != widget.initialIndex) {
+        animateTo(widget.initialIndex);
+      }
+    }
+  }
+
   void animateTo(int index) {
+    if (!_pageController.hasClients) return;
     _pageController.animateToPage(
       index,
       duration: const Duration(milliseconds: 250),

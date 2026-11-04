@@ -9,7 +9,7 @@ class AppLocalizationsOc extends AppLocalizations {
   AppLocalizationsOc([String locale = 'oc']) : super(locale);
 
   @override
-  String get appTitle => 'Daily You';
+  String get appTitle => 'learningEnglish';
 
   @override
   String get dailyReminderTitle => 'Enregistratz vòstra jornada !';

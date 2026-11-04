@@ -1,3 +1,4 @@
+import 'package:daily_you/pages/login_page.dart';
 // Copyright (C) 2026 Demizo and contributors
 // SPDX-License-Identifier: GPL-3.0-only
 // Additional terms under GPLv3 section 7 apply; see ADDITIONAL_TERMS.md.
@@ -29,7 +30,6 @@ import 'package:daily_you/utils/logging.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:daily_you/l10n/generated/app_localizations.dart';
-import 'package:daily_you/layouts/mobile_scaffold.dart';
 import 'package:daily_you/theme_mode_provider.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -457,6 +457,17 @@ class _MainAppState extends State<MainApp> {
       } else {
         lightTheme = _buildTheme(ColorScheme.fromSeed(
             seedColor: themeModeProvider.accentColor,
+            primary: const Color(0xFF6C63FF),
+            primaryContainer: const Color(0xFFD2DAFF),
+            secondary: const Color(0xFF7B9BFF),
+            secondaryContainer: const Color(0xFFAAC4FF),
+            surface: Colors.white,
+            surfaceContainerLow: const Color(0xFFF7F8FF),
+            surfaceContainer: const Color(0xFFEEF1FF),
+            surfaceContainerHigh: const Color(0xFFD2DAFF),
+            surfaceContainerHighest: const Color(0xFFAAC4FF),
+            outline: const Color(0xFFB1B2FF),
+            outlineVariant: const Color(0xFFD2DAFF),
             brightness: Brightness.light),
             scaffoldBackgroundColor: const Color(0xffEEF1FF));
       }
@@ -515,7 +526,7 @@ class _MainAppState extends State<MainApp> {
             child: MaterialApp(
                 onGenerateTitle: (context) =>
                     AppLocalizations.of(context)!.appTitle,
-                title: 'Daily You',
+                title: 'learningEnglish',
                 themeMode: themeModeProvider.themeMode,
                 debugShowCheckedModeBanner: false,
                 localizationsDelegates: <LocalizationsDelegate<dynamic>>[
@@ -544,7 +555,7 @@ class _MainAppState extends State<MainApp> {
                 },
                 theme: lightTheme,
                 darkTheme: darkTheme,
-                home: LaunchPage(nextPage: MobileScaffold()))),
+                home: const LaunchPage(nextPage: LoginPage()))),
       );
     });
   }

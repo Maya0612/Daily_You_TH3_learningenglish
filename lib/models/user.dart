@@ -17,6 +17,7 @@ class UserFields {
   static const String authId = 'auth_id';
   static const String name = 'name';
   static const String email = 'email';
+  static const String password = 'password';
   static const String timeCreate = 'time_create';
   static const String timeModified = 'time_modified';
 }
@@ -34,6 +35,7 @@ class User {
 
   final String name;
   final String? email;
+  final String? password;
   final DateTime timeCreate;
   final DateTime timeModified;
 
@@ -42,6 +44,7 @@ class User {
     this.authId,
     required this.name,
     this.email,
+    this.password,
     required this.timeCreate,
     required this.timeModified,
   });
@@ -53,6 +56,7 @@ class User {
     Object? authId = _unset,
     String? name,
     Object? email = _unset,
+    Object? password = _unset,
     DateTime? timeCreate,
     DateTime? timeModified,
   }) =>
@@ -61,6 +65,7 @@ class User {
         authId: authId == _unset ? this.authId : authId as String?,
         name: name ?? this.name,
         email: email == _unset ? this.email : email as String?,
+        password: password == _unset ? this.password : password as String?,
         timeCreate: timeCreate ?? this.timeCreate,
         timeModified: timeModified ?? this.timeModified,
       );
@@ -70,6 +75,7 @@ class User {
         authId: json[UserFields.authId] as String?,
         name: json[UserFields.name] as String,
         email: json[UserFields.email] as String?,
+        password: json[UserFields.password] as String?,
         timeCreate: DateTime.parse(json[UserFields.timeCreate] as String),
         timeModified: DateTime.parse(json[UserFields.timeModified] as String),
       );
@@ -79,6 +85,7 @@ class User {
         UserFields.authId: authId,
         UserFields.name: name,
         UserFields.email: email,
+        UserFields.password: password,
         UserFields.timeCreate: timeCreate.toIso8601String(),
         UserFields.timeModified: timeModified.toIso8601String(),
       };

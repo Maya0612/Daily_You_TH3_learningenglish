@@ -30,7 +30,7 @@ class Setting<T> {
 
 class Settings {
   static const configVersion = Setting<String>("configVersion", "3");
-  static const theme = Setting<String>("theme", "system");
+  static const theme = Setting<String>("theme", "light");
   static const syncLogs = Setting<bool>("syncLogs", false);
   static const syncImages = Setting<bool>("syncImages", false);
   static const syncVideo = Setting<bool>("syncVideo", false);

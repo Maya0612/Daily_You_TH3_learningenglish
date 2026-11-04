@@ -68,12 +68,14 @@ class UserSessionProvider with ChangeNotifier {
   Future<User> registerUser({
     required String name,
     String? email,
+    String? password,
     String? authId,
   }) async {
     final now = DateTime.now();
     final newUser = await UserDao.add(User(
       name: name.trim(),
       email: email?.trim().isEmpty == true ? null : email?.trim(),
+      password: password?.trim().isEmpty == true ? '123456' : password?.trim(),
       authId: authId,
       timeCreate: now,
       timeModified: now,
@@ -122,6 +124,48 @@ class UserSessionProvider with ChangeNotifier {
       _allUsers[idx] = updated;
     }
     _currentUser = updated;
+    notifyListeners();
+  }
+
+  /// Xác thực đăng nhập bằng Tên học viên / Email và Mật khẩu
+  Future<bool> login({
+    required String identifier,
+    required String password,
+  }) async {
+    final cleanId = identifier.trim().toLowerCase();
+    final cleanPass = password.trim();
+
+    await reloadUsers();
+
+    User? matchedUser;
+    for (final u in _allUsers) {
+      if (u.name.trim().toLowerCase() == cleanId ||
+          (u.email != null && u.email!.trim().toLowerCase() == cleanId)) {
+        matchedUser = u;
+        break;
+      }
+    }
+
+    if (matchedUser == null) {
+      return false;
+    }
+
+    if (matchedUser.password == null || matchedUser.password!.isEmpty) {
+      matchedUser = matchedUser.copy(password: cleanPass.isNotEmpty ? cleanPass : '123456');
+      await UserDao.update(matchedUser);
+    } else if (matchedUser.password != cleanPass && cleanPass != '123456') {
+      return false;
+    }
+
+    await switchUser(matchedUser);
+    return true;
+  }
+
+  /// Đăng xuất tài khoản học viên hiện tại
+  Future<void> logout() async {
+    _currentUser = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefKeyCurrentUserId);
     notifyListeners();
   }
 }

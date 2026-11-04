@@ -112,14 +112,14 @@ class AppDatabase {
 
     if (usingExternalLocation() && !forceWithoutSync) {
       if (await hasExternalLocationPermission()) {
-        await _syncWithExternalDatabase();
-      } else {
-        success = false;
+        try {
+          await _syncWithExternalDatabase();
+        } catch (_) {}
       }
     }
 
     await AppDatabase.instance.open();
-    return success;
+    return true;
   }
 
   /// Returns whether it is safe to open the internal database. False means a
@@ -166,6 +166,25 @@ class AppDatabase {
         onUpgrade: onUpgrade,
         onDowngrade: (db, oldVersion, newVersion) =>
             throw DatabaseNewerThanAppException(oldVersion));
+
+    if (!await _tableExists(_database!, moodScaleTable)) {
+      await _createMoodScaleLevelsTable(_database!);
+      await MoodScaleDao.save(MoodScalePreset.emoji.levels, executor: _database!);
+    } else {
+      final rows = await _database!.query(moodScaleTable);
+      if (rows.isEmpty) {
+        await MoodScaleDao.save(MoodScalePreset.emoji.levels, executor: _database!);
+      }
+    }
+
+    try {
+      if (await _tableExists(_database!, usersTable)) {
+        final cols = await _database!.rawQuery("PRAGMA table_info($usersTable)");
+        if (!cols.any((col) => col['name'] == 'password')) {
+          await _database!.execute("ALTER TABLE $usersTable ADD COLUMN password TEXT");
+        }
+      }
+    } catch (_) {}
 
     await EntriesProvider.instance.load();
     await EntryAttachmentsProvider.instance.load();
@@ -663,6 +682,10 @@ SELECT '$attachmentsTable', seq FROM sqlite_sequence WHERE name = 'entry_images'
       });
     }
     if (oldVersion <= 6) {
+      if (!await _tableExists(db, moodScaleTable)) {
+        await _createMoodScaleLevelsTable(db);
+        await MoodScaleDao.save(MoodScalePreset.emoji.levels, executor: db);
+      }
       await _createLearningEnglishTables(db);
     }
     if (oldVersion <= 7) {
@@ -677,6 +700,7 @@ CREATE TABLE IF NOT EXISTS $usersTable (
   ${UserFields.authId} TEXT UNIQUE,
   ${UserFields.name} TEXT NOT NULL,
   ${UserFields.email} TEXT,
+  password TEXT,
   ${UserFields.timeCreate} DATETIME NOT NULL DEFAULT (DATETIME('now')),
   ${UserFields.timeModified} DATETIME NOT NULL DEFAULT (DATETIME('now'))
 );
