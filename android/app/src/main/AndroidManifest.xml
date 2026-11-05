@@ -20,6 +20,8 @@
 	android:roundIcon="@mipmap/ic_launcher_round"
 	android:localeConfig="@xml/locales_config"
 	android:enableOnBackInvokedCallback="true">
+        <!-- Fix black screen on Android Emulator (disable Impeller) -->
+        <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />
         <service
             android:name="com.dexterous.flutterlocalnotifications.ForegroundService"
             android:exported="false"

@@ -265,90 +265,89 @@ class PracticeSpeechPageState extends State<PracticeSpeechPage> {
   Future<void> _startRecording() async {
     try {
       await _audioPlayer.stop();
-      await _audioRecorderService.startRecording();
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể bắt đầu ghi âm: $error')),
-      );
-      return;
-    }
-
-    if (!mounted) {
-      await _audioRecorderService.stopRecording();
-      return;
-    }
+    } catch (_) {}
 
     setState(() {
       _isRecording = true;
       _recordingSeconds = 0;
-      _currentMicLevel = -160;
-      _peakMicLevel = -160;
+      _currentMicLevel = -40;
       _recognizedText = null;
-      _recordedAudioPath = null;
       _latestResult = null;
-      _loadedAudioPath = null;
     });
 
+    _recordingTimer?.cancel();
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() => _recordingSeconds++);
       }
     });
-    _amplitudeSubscription =
-        _audioRecorderService.amplitudeStream.listen((amplitude) {
-      if (!mounted) return;
-      setState(() {
-        _currentMicLevel = amplitude;
-        if (amplitude > _peakMicLevel) {
-          _peakMicLevel = amplitude;
-        }
-      });
-    }, onError: (Object error, StackTrace stackTrace) {
-      debugPrint('Reading microphone level failed: $error');
-    });
+
+    try {
+      final recognized = await SpeechToTextService.recognize(
+        onTextUpdate: (text) {
+          if (mounted && text.trim().isNotEmpty) {
+            setState(() {
+              _recognizedText = text.trim();
+            });
+          }
+        },
+      );
+
+      if (mounted &&
+          recognized.trim().isNotEmpty &&
+          recognized != SpeechToTextService.fallbackText) {
+        setState(() {
+          _recognizedText = recognized.trim();
+        });
+      }
+    } catch (error) {
+      debugPrint('Speech recognition error: $error');
+    } finally {
+      if (mounted && _isRecording) {
+        _recordingTimer?.cancel();
+        setState(() => _isRecording = false);
+      }
+    }
   }
 
   Future<void> _stopRecording() async {
     _recordingTimer?.cancel();
-    await _amplitudeSubscription?.cancel();
-    _amplitudeSubscription = null;
     setState(() => _isRecording = false);
 
-    String? audioPath;
     try {
-      audioPath = await _audioRecorderService.stopRecording();
-      if (audioPath == null) {
-        throw StateError('No recorded audio file was produced.');
+      final finalText = await SpeechToTextService.stop();
+      if (finalText.trim().isNotEmpty && finalText != SpeechToTextService.fallbackText) {
+        if (mounted) {
+          setState(() {
+            _recognizedText = finalText.trim();
+          });
+        }
       }
-      if (mounted) {
-        setState(() {
-          _recordedAudioPath = audioPath;
-          if (_sentences.isNotEmpty && _selectedSentenceIndex < _sentences.length) {
-            _recognizedText = _sentences[_selectedSentenceIndex].sentence;
-          }
-        });
-      }
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _recordedAudioPath = audioPath);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể hoàn tất ghi âm: $error')),
-      );
-      return;
-    }
+    } catch (_) {}
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Đã thu âm xong. Bạn có thể nghe lại hoặc nhấn "Chấm điểm phát âm AI" ngay!',
+    if (_recognizedText != null &&
+        _recognizedText!.trim().isNotEmpty &&
+        _recognizedText != SpeechToTextService.fallbackText) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đã nhận diện: "$_recognizedText". Nhấn "Chấm điểm phát âm AI" ngay!'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
         ),
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 3),
-      ),
-    );
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Chưa phát hiện được giọng nói. Bạn hãy bấm Micro nói to hơn hoặc bấm "Nhập từ test" nhé!',
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   Future<void> _recognizeRecordedSpeech() async {
@@ -446,6 +445,63 @@ class PracticeSpeechPageState extends State<PracticeSpeechPage> {
   }
 
   // =============================================================
+  Future<void> _showEditRecognizedTextDialog() async {
+    final controller = TextEditingController(text: _recognizedText ?? '');
+    final updated = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.record_voice_over_rounded, color: Color(0xFF6C63FF)),
+            SizedBox(width: 8),
+            Text('Nội dung nhận diện giọng nói',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Bạn có thể chỉnh sửa câu nhận diện hoặc gõ để kiểm tra thuật toán chấm điểm âm vị AI:',
+              style: TextStyle(fontSize: 13, color: Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'Nhập câu bạn vừa nói...',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF6C63FF)),
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: const Text('Áp dụng & Chấm điểm'),
+          ),
+        ],
+      ),
+    );
+
+    if (updated != null && mounted) {
+      setState(() {
+        _recognizedText = updated.isEmpty ? null : updated;
+      });
+      await _evaluatePronunciation();
+    }
+  }
+
+  // =============================================================
   // ĐÁNH GIÁ PHÁT ÂM AI VÀ LƯU VÀO CSDL
   // =============================================================
   Future<void> _evaluatePronunciation() async {
@@ -453,10 +509,22 @@ class PracticeSpeechPageState extends State<PracticeSpeechPage> {
     final targetText = _sentences[_selectedSentenceIndex].sentence;
 
     String recognizedText = _recognizedText?.trim() ?? '';
-    if (recognizedText.isEmpty ||
-        recognizedText == SpeechToTextService.fallbackText) {
-      recognizedText = targetText;
-      _recognizedText = recognizedText;
+    if (recognizedText == SpeechToTextService.fallbackText) {
+      recognizedText = '';
+    }
+
+    if (recognizedText.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Chưa có nội dung giọng nói nhận diện được. Hãy nói to rõ hơn hoặc bấm "Nhập từ test" nhé!',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
     }
 
     setState(() => _isScoring = true);
@@ -1007,8 +1075,7 @@ class PracticeSpeechPageState extends State<PracticeSpeechPage> {
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center,
                     children: [
                       Icon(
                         Icons.mic_rounded,
@@ -1066,17 +1133,15 @@ class PracticeSpeechPageState extends State<PracticeSpeechPage> {
                   const SizedBox(height: 12),
 
                   Text(
-                    _isRecognizingSpeech
-                        ? 'Đang nghe. Hãy đọc câu tiếng Anh để nhận dạng.'
-                        : _isRecording
-                            ? 'Đang ghi âm: 00:${_recordingSeconds.toString().padLeft(2, '0')} (Bấm nút đỏ để dừng)'
-                            : _recordedAudioPath != null
-                                ? 'Đã ghi âm xong. Bạn có thể nghe lại hoặc chấm điểm AI ngay!'
-                                : 'Chạm vào Micro để bắt đầu luyện đọc câu này.',
+                    _isRecording
+                        ? 'Đang lắng nghe: 00:${_recordingSeconds.toString().padLeft(2, '0')} (Hãy đọc to câu tiếng Anh trên, bấm nút đỏ để dừng)'
+                        : _recognizedText != null && _recognizedText!.isNotEmpty
+                            ? 'Đã ghi nhận giọng nói! Hãy chọn "Chấm điểm phát âm AI" ngay bên dưới.'
+                            : 'Chạm vào Micro để bắt đầu luyện đọc câu này.',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: _isRecording || _isRecognizingSpeech
+                      color: _isRecording
                           ? const Color(0xFFD32F2F)
                           : Colors.grey.shade700,
                     ),
@@ -1084,98 +1149,34 @@ class PracticeSpeechPageState extends State<PracticeSpeechPage> {
                   ),
 
                   if (_isRecording) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tín hiệu micro: ${_currentMicLevel.toStringAsFixed(0)} dBFS',
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 4),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: ((_currentMicLevel + 60) / 60)
-                            .clamp(0.0, 1.0)
-                            .toDouble(),
-                        color: const Color(0xFFD32F2F),
-                        backgroundColor: Colors.grey.shade200,
-                      ),
-                    ),
-                  ],
-
-                  if (_recordedAudioPath != null) ...[
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        StreamBuilder<PlayerState>(
-                          stream: _audioPlayer.playerStateStream,
-                          builder: (context, snapshot) {
-                            final isPlaying =
-                                snapshot.data?.playing ?? _audioPlayer.playing;
-                            return OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFF6C63FF)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              onPressed: _isRecognizingSpeech
-                                  ? null
-                                  : _playRecordedAudio,
-                              icon: Icon(
-                                isPlaying ? Icons.pause_rounded : Icons.replay,
-                                color: const Color(0xFF6C63FF),
-                                size: 18,
-                              ),
-                              label: Text(
-                                isPlaying
-                                    ? 'Tạm dừng'
-                                    : 'Nghe lại bản thu',
-                                style: const TextStyle(
-                                  color: Color(0xFF6C63FF),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            );
-                          },
+                      children: const [
+                        SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFD32F2F)),
                         ),
-                        const SizedBox(width: 8),
-                        FilledButton.tonalIcon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFFEEF1FF),
-                            foregroundColor: const Color(0xFF6C63FF),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: _isRecognizingSpeech
-                              ? null
-                              : _recognizeRecordedSpeech,
-                          icon: _isRecognizingSpeech
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.record_voice_over, size: 18),
-                          label: Text(
-                            _isRecognizingSpeech ? 'Nhận dạng...' : 'Speech-to-Text',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Đang lắng nghe qua Micro... Hãy đọc to câu tiếng Anh!',
+                          style: TextStyle(fontSize: 12, color: Color(0xFFD32F2F), fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
                   ],
 
-                  if (_recognizedText != null) ...[
+                  if (_recognizedText != null &&
+                      _recognizedText!.trim().isNotEmpty &&
+                      _recognizedText != SpeechToTextService.fallbackText) ...[
                     const SizedBox(height: 14),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEEF1FF),
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFB1B2FF)),
                       ),
                       child: Row(
                         children: [
@@ -1191,6 +1192,44 @@ class PracticeSpeechPageState extends State<PracticeSpeechPage> {
                                 color: Color(0xFF2D2B55),
                               ),
                             ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit_note_rounded,
+                                size: 22, color: Color(0xFF6C63FF)),
+                            tooltip: 'Chỉnh sửa từ nhận diện hoặc test chấm điểm AI',
+                            onPressed: _showEditRecognizedTextDialog,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (!_isRecording) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F9FA),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, size: 16, color: Colors.grey),
+                          const SizedBox(width: 6),
+                          const Expanded(
+                            child: Text(
+                              'Bấm Micro nói hoặc nhập từ kiểm thử:',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            icon: const Icon(Icons.edit, size: 14, color: Color(0xFF6C63FF)),
+                            label: const Text('Nhập từ test',
+                                style: TextStyle(fontSize: 12, color: Color(0xFF6C63FF))),
+                            onPressed: _showEditRecognizedTextDialog,
                           ),
                         ],
                       ),
@@ -1373,7 +1412,7 @@ class PracticeSpeechPageState extends State<PracticeSpeechPage> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Lỗi âm vị: ${_latestResult!.mispronouncedWords!.map((m) => "${m.word} (cần đọc ${m.expectedPhoneme})").join(", ")}',
+                                'Lỗi phát âm: ${_latestResult!.mispronouncedWords!.map((m) { if (m.errorType == "missing_word" || m.expectedPhoneme == null || m.expectedPhoneme!.isEmpty) { return "${m.word} (chưa đọc / bị thiếu)"; } return "${m.word} (cần đọc /${m.expectedPhoneme}/)"; }).join(", ")}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,

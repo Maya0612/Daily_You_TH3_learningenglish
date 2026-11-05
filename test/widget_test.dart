@@ -53,10 +53,10 @@ void main() {
 
   testWidgets('PracticeSpeechPage smoke test renders correctly', (tester) async {
     await tester.pumpWidget(createTestApp(const PracticeSpeechPage()));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('Luyện phát âm tiếng Anh'), findsOneWidget);
-    expect(find.text('CHỦ ĐỀ ÔN TẬP'), findsOneWidget);
+    expect(find.text('CẤP ĐỘ KHÓA HỌC'), findsOneWidget);
+    expect(find.text('+ Thêm câu mới'), findsOneWidget);
     expect(find.byIcon(Icons.mic_rounded), findsWidgets);
   });
 

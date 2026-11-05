@@ -1251,7 +1251,7 @@ class _DetailedPronunciationSheetState
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        'Lỗi âm vị: ${mispronounced.map((m) => "${m.word} (cần đọc ${m.expectedPhoneme})").join(", ")}',
+                                        'Lỗi phát âm: ${mispronounced.map((m) { if (m.errorType == "missing_word" || m.expectedPhoneme == null || m.expectedPhoneme!.isEmpty) { return "${m.word} (chưa đọc / bị thiếu)"; } return "${m.word} (cần đọc /${m.expectedPhoneme}/)"; }).join(", ")}',
                                         style: const TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,

@@ -20,7 +20,30 @@ class PronunciationAssessmentService {
     }
 
     if (spokenWords.isEmpty) {
-      throw ArgumentError('Văn bản nhận diện không được để trống.');
+      final wordScores =
+          referenceWords.map((w) => WordScore(word: w, score: 0.0)).toList();
+      final mispronouncedWords = referenceWords
+          .map((w) => MispronouncedWord(word: w, errorType: 'missing_word'))
+          .toList();
+
+      return PronunciationResult(
+        userId: userId,
+        practiceId: practiceId,
+        referenceSentence: targetSentence,
+        recognizedText: recognizedText.trim().isEmpty
+            ? '(Chưa nhận diện được giọng nói)'
+            : recognizedText,
+        overallScore: 0.0,
+        wordScores: wordScores,
+        mispronouncedWords: mispronouncedWords,
+        feedback:
+            'Chưa phát hiện giọng nói hoặc phát âm chưa rõ. Hãy nói to và rõ ràng hơn nhé!',
+        suggestions:
+            '1. Bấm nút thu âm và đọc to từng từ trong câu mẫu.\n2. Đảm bảo micro ở gần và không có nhiều tạp âm xung quanh.',
+        evaluatedAt: DateTime.now(),
+        audioFilePath: audioFilePath,
+        timeCreate: DateTime.now(),
+      );
     }
 
     final alignment = _alignWords(referenceWords, spokenWords);

@@ -8,6 +8,10 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 import android.content.Intent;
 
 class MainActivity: FlutterFragmentActivity() {
+  override fun getRenderMode(): io.flutter.embedding.android.RenderMode {
+    return io.flutter.embedding.android.RenderMode.texture
+  }
+
   override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
     super.onActivityResult(requestCode, resultCode, data)
   }

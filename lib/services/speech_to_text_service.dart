@@ -28,7 +28,7 @@ class SpeechToTextService {
       final available = await _speech.initialize(
         onError: (error) {
           _logger.warning('Speech recognition error: ${error.errorMsg}');
-          _completeResult(fallbackText);
+          _completeResult(_recognizedText);
         },
         onStatus: _handleStatus,
       );
@@ -37,9 +37,10 @@ class SpeechToTextService {
       await _speech.listen(
         listenOptions: SpeechListenOptions(
           localeId: 'en_US',
-          listenFor: const Duration(seconds: 30),
-          pauseFor: const Duration(seconds: 3),
-          cancelOnError: true,
+          listenFor: const Duration(seconds: 45),
+          pauseFor: const Duration(seconds: 5),
+          cancelOnError: false,
+          partialResults: true,
         ),
         onResult: _handleResult,
       );
@@ -62,6 +63,19 @@ class SpeechToTextService {
       }
       _reset();
     }
+  }
+
+  static Future<String> stop() async {
+    try {
+      if (_speech.isListening) {
+        await _speech.stop();
+      }
+    } catch (error, stackTrace) {
+      _logger.warning(
+          'Stopping speech recognition failed.', error, stackTrace);
+    }
+    _completeResult(_recognizedText);
+    return _recognizedText;
   }
 
   static Future<void> cancel() async {
@@ -96,8 +110,7 @@ class SpeechToTextService {
     if (result == null || result.isCompleted) return;
 
     final recognizedText = text.trim();
-    final completedText =
-        recognizedText.isEmpty ? fallbackText : recognizedText;
+    final completedText = recognizedText;
     _onTextUpdate?.call(completedText);
     result.complete(completedText);
   }
